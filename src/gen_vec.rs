@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use core::mem;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Index {
     index: usize,
     generation: u32,
@@ -28,12 +28,16 @@ impl<T> Element<T> {
     }
 }
 
-pub struct GenerationalVec<T> {
+pub struct GenVec<T> {
     vec: Vec<Element<T>>,
 }
 
-impl<T> GenerationalVec<T> {
-    pub fn push(&mut self, value: T) -> Index {
+impl<T> GenVec<T> {
+    pub fn new() -> GenVec<T> {
+        GenVec { vec: Vec::new() }
+    }
+
+    pub fn add(&mut self, value: T) -> Index {
         // check for an existing spot
         let open_slot_index = self.vec.iter().position(|elem| match elem {
             Element::Some(_, _) => false,
