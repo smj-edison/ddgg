@@ -1,13 +1,19 @@
 use alloc::vec::Vec;
 use core::mem;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Index {
-    index: usize,
-    generation: u32,
+    pub(crate) index: usize,
+    pub(crate) generation: u32,
 }
 
-enum Element<T> {
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub(crate) enum Element<T> {
     Some(T, u32),
     None(u32),
 }
@@ -28,6 +34,8 @@ impl<T> Element<T> {
     }
 }
 
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct GenVec<T> {
     vec: Vec<Element<T>>,
 }
@@ -107,5 +115,9 @@ impl<T> GenVec<T> {
         } else {
             None
         }
+    }
+
+    pub(crate) fn raw_access(&mut self) -> &mut Vec<Element<T>> {
+        &mut self.vec
     }
 }
