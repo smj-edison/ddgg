@@ -120,4 +120,12 @@ impl<T> GenVec<T> {
     pub(crate) fn raw_access(&mut self) -> &mut Vec<Element<T>> {
         &mut self.vec
     }
+
+    pub(crate) fn is_replaceable_by_index(&self, index: Index) -> bool {
+        if let Element::None(generation) = self.vec[index.index] {
+            generation == index.generation
+        } else {
+            true
+        }
+    }
 }

@@ -2,28 +2,36 @@ use core::{fmt::Debug, ops};
 
 use alloc::vec::Vec;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use crate::{
     errors::GraphError,
-    gen_vec::{GenVec, Index},
+    gen_vec::{Element, GenVec, Index},
+    graph_diff::{AddEdge, AddVertex, RemoveEdge, RemoveVertex},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct VertexIndex(Index);
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EdgeIndex(Index);
 
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Vertex<T> {
     connections_from: Vec<(VertexIndex, EdgeIndex)>,
     connections_to: Vec<(VertexIndex, EdgeIndex)>,
-    value: T,
+    data: T,
 }
 
 impl<T> Vertex<T> {
-    fn new(value: T) -> Vertex<T> {
+    fn new(data: T) -> Vertex<T> {
         Vertex {
             connections_from: Vec::new(),
             connections_to: Vec::new(),
-            value,
+            data,
         }
     }
 
@@ -68,15 +76,17 @@ impl<T> Vertex<T> {
     }
 }
 
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Edge<T> {
     from: VertexIndex,
     to: VertexIndex,
-    pub value: T,
+    pub data: T,
 }
 
 impl<T> Edge<T> {
-    pub fn new(from: VertexIndex, to: VertexIndex, value: T) -> Edge<T> {
-        Edge { from, to, value }
+    pub fn new(from: VertexIndex, to: VertexIndex, data: T) -> Edge<T> {
+        Edge { from, to, data }
     }
 
     pub fn get_from(&self) -> VertexIndex {
@@ -89,6 +99,8 @@ impl<T> Edge<T> {
 }
 
 /// Main graph structure
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Graph<V, E> {
     verticies: GenVec<Vertex<V>>,
     edges: GenVec<Edge<E>>,
@@ -103,54 +115,81 @@ impl<V, E> Graph<V, E> {
     }
 }
 
-impl<V, E> Graph<V, E> {
-    pub fn add_vertex(&mut self, vertex: V) -> Result<VertexIndex, GraphError> {
-        Ok(VertexIndex(self.verticies.add(Vertex::new(vertex))))
+impl<V: Clone, E: Clone> Graph<V, E> {
+    pub fn add_vertex(
+        &mut self,
+        vertex_data: V,
+    ) -> Result<(VertexIndex, AddVertex<V>), GraphError> {
+        let vertex_index = VertexIndex(self.verticies.add(Vertex::new(vertex_data.clone())));
+
+        let diff = AddVertex {
+            vertex_index,
+            vertex_data,
+        };
+
+        Ok((vertex_index, diff))
     }
 
     pub fn add_edge(
         &mut self,
         from_index: VertexIndex,
         to_index: VertexIndex,
-        edge_value: E,
-    ) -> Result<EdgeIndex, GraphError> {
-        // check that everything is in proper order
+        edge_data: E,
+    ) -> Result<(EdgeIndex, AddEdge<E>), GraphError> {
         self.assert_vertex_exists(from_index)?;
         self.assert_vertex_exists(to_index)?;
 
         // create the edge and link everything up
-        let edge_index = EdgeIndex(self.edges.add(Edge::new(from_index, to_index, edge_value)));
+        let edge_index = EdgeIndex(self.edges.add(Edge::new(
+            from_index,
+            to_index,
+            edge_data.clone(),
+        )));
 
-        // already checked that vertex exists, so we're unwrapping
+        // connect the verticies (all vertex lookups use unwraps here to preserve the invariant of two-way connections)
         let from = self.get_vertex_mut(from_index).unwrap();
         from.add_to_unchecked(to_index, edge_index);
 
-        // already checked that vertex exists, so we're unwrapping (also, we've already added
-        // the "from->to" link, and now we can't add the "to->from" link. This is a panic
-        // condition)
         let to = self.get_vertex_mut(to_index).unwrap();
         to.add_from_unchecked(from_index, edge_index);
 
-        Ok(edge_index)
+        let diff = AddEdge {
+            edge_index: edge_index,
+            from: from_index,
+            to: to_index,
+            edge_data,
+        };
+
+        Ok((edge_index, diff))
     }
 
-    pub fn remove_edge(&mut self, edge_index: EdgeIndex) -> Result<Edge<E>, GraphError> {
-        // check that everything is in proper order
+    pub fn remove_edge(&mut self, edge_index: EdgeIndex) -> Result<(E, RemoveEdge<E>), GraphError> {
         let edge = self.get_edge(edge_index)?;
         let from_index = edge.from;
         let to_index = edge.to;
 
-        // remove the edge (all node lookups use unwraps here to preserve the invariant of two-way connections)
+        // remove the edge (all vertex lookups use unwraps here to preserve the invariant of two-way connections)
         let from = self.get_vertex_mut(from_index).unwrap();
         from.remove_to(edge_index).unwrap();
 
         let to = self.get_vertex_mut(to_index).unwrap();
         to.remove_from(edge_index).unwrap();
 
-        Ok(self.edges.remove(edge_index.0).unwrap())
+        let edge = self.edges.remove(edge_index.0).unwrap();
+        let edge_data = edge.data.clone();
+
+        let diff = RemoveEdge {
+            edge_index,
+            edge: edge,
+        };
+
+        Ok((edge_data, diff))
     }
 
-    pub fn remove_vertex(&mut self, vertex_index: VertexIndex) -> Result<V, GraphError> {
+    pub fn remove_vertex(
+        &mut self,
+        vertex_index: VertexIndex,
+    ) -> Result<(V, RemoveVertex<V, E>), GraphError> {
         // check that everything is in proper order
         let vertex = self.get_vertex(vertex_index)?;
 
@@ -158,14 +197,27 @@ impl<V, E> Graph<V, E> {
         let mut connections = vertex.get_connections_from().clone();
         connections.extend(vertex.get_connections_to().clone());
 
-        for (_, connection_index) in connections {
-            self.remove_edge(connection_index).unwrap();
-        }
+        let edge_diffs: Vec<RemoveEdge<E>> = connections
+            .iter()
+            .map(|(_, connection_index)| self.remove_edge(*connection_index).unwrap().1)
+            .collect();
 
         // finally remove the vertex
-        Ok(self.verticies.remove(vertex_index.0).unwrap().value)
-    }
+        let vertex = self.verticies.remove(vertex_index.0).unwrap();
+        let vertex_data = vertex.data.clone();
 
+        let diff = RemoveVertex {
+            vertex_index,
+            vertex,
+            removed_edges: edge_diffs,
+        };
+
+        Ok((vertex_data, diff))
+    }
+}
+
+// Utility functions
+impl<V: Clone, E: Clone> Graph<V, E> {
     pub fn get_vertex(&self, index: VertexIndex) -> Result<&Vertex<V>, GraphError> {
         match self.verticies.get(index.0) {
             Some(vertex) => Ok(vertex),
@@ -211,9 +263,161 @@ impl<V, E> Graph<V, E> {
             Ok(())
         }
     }
+
+    pub fn apply_add_vertex_diff(&mut self, diff: AddVertex<V>) -> Result<(), GraphError> {
+        if !self.verticies.is_replaceable_by_index(diff.vertex_index.0) {
+            return Err(GraphError::DiffAlreadyApplied);
+        }
+
+        self.verticies.raw_access()[diff.vertex_index.0.index] = Element::Some(
+            Vertex::new(diff.vertex_data),
+            diff.vertex_index.0.generation,
+        );
+
+        Ok(())
+    }
+
+    pub fn apply_add_edge_diff(&mut self, diff: AddEdge<E>) -> Result<(), GraphError> {
+        self.assert_vertex_exists(diff.from)?;
+        self.assert_vertex_exists(diff.to)?;
+
+        // check that this edge doesn't exist
+        if !self.edges.is_replaceable_by_index(diff.edge_index.0) {
+            return Err(GraphError::DiffAlreadyApplied);
+        }
+
+        // apply the diff
+        self.edges.raw_access()[diff.edge_index.0.index] = Element::Some(
+            Edge::new(diff.from, diff.to, diff.edge_data),
+            diff.edge_index.0.generation,
+        );
+
+        let from = self
+            .get_vertex_mut(diff.from)
+            .expect("Graph state has become corrupted before applying diff");
+        from.add_to_unchecked(diff.to, diff.edge_index);
+
+        let to = self
+            .get_vertex_mut(diff.to)
+            .expect("Graph state has become corrupted before applying diff");
+        to.add_from_unchecked(diff.from, diff.edge_index);
+
+        Ok(())
+    }
+
+    pub fn apply_remove_edge_diff(&mut self, diff: RemoveEdge<E>) -> Result<(), GraphError> {
+        self.assert_vertex_exists(diff.edge.from)?;
+        self.assert_vertex_exists(diff.edge.to)?;
+        self.assert_edge_exists(diff.edge_index)?;
+
+        // remove the edge
+        self.remove_edge(diff.edge_index)
+            .expect("Graph state has become corrupted before applying diff");
+
+        Ok(())
+    }
+
+    pub fn apply_remove_vertex_diff(&mut self, diff: RemoveVertex<V, E>) -> Result<(), GraphError> {
+        self.assert_vertex_exists(diff.vertex_index)?;
+
+        self.remove_vertex(diff.vertex_index)
+            .expect("Graph state has become corrupted before applying diff");
+
+        Ok(())
+    }
+
+    pub fn rollback_add_vertex_diff(&mut self, diff: AddVertex<V>) -> Result<(), GraphError> {
+        // check that the vertex exists
+        self.assert_vertex_exists(diff.vertex_index)?;
+
+        self.remove_vertex(diff.vertex_index)
+            .expect("Graph state has become corrupted before applying diff");
+
+        Ok(())
+    }
+
+    pub fn rollback_add_edge_diff(&mut self, diff: AddEdge<E>) -> Result<(), GraphError> {
+        self.assert_vertex_exists(diff.from)?;
+        self.assert_vertex_exists(diff.to)?;
+        self.assert_edge_exists(diff.edge_index)?;
+
+        // remove the edge
+        self.remove_edge(diff.edge_index)
+            .expect("Graph state has become corrupted before applying diff");
+
+        Ok(())
+    }
+
+    pub fn rollback_remove_edge_diff(&mut self, diff: RemoveEdge<E>) -> Result<(), GraphError> {
+        let from_index = diff.edge.from;
+        let to_index = diff.edge.to;
+
+        self.assert_vertex_exists(from_index)?;
+        self.assert_vertex_exists(to_index)?;
+
+        // check that this edge doesn't exist
+        if !self.edges.is_replaceable_by_index(diff.edge_index.0) {
+            return Err(GraphError::DiffAlreadyApplied);
+        }
+
+        // apply the diff
+        self.edges.raw_access()[diff.edge_index.0.index] =
+            Element::Some(diff.edge, diff.edge_index.0.generation);
+
+        let from = self
+            .get_vertex_mut(from_index)
+            .expect("Graph state has become corrupted before applying diff");
+        from.add_to_unchecked(to_index, diff.edge_index);
+
+        let to = self
+            .get_vertex_mut(to_index)
+            .expect("Graph state has become corrupted before applying diff");
+        to.add_from_unchecked(from_index, diff.edge_index);
+
+        Ok(())
+    }
+
+    pub fn rollback_remove_vertex_diff(
+        &mut self,
+        diff: RemoveVertex<V, E>,
+    ) -> Result<(), GraphError> {
+        if !self.verticies.is_replaceable_by_index(diff.vertex_index.0) {
+            return Err(GraphError::DiffAlreadyApplied);
+        }
+
+        // check that all edges are replaceable
+        for removed_edge in diff.removed_edges.iter() {
+            if !self
+                .edges
+                .is_replaceable_by_index(removed_edge.edge_index.0)
+            {
+                return Err(GraphError::DiffAlreadyApplied);
+            }
+        }
+
+        self.verticies.raw_access()[diff.vertex_index.0.index] =
+            Element::Some(diff.vertex, diff.vertex_index.0.generation);
+
+        for removed_edge in diff.removed_edges {
+            let from = self
+                .get_vertex_mut(removed_edge.edge.from)
+                .expect("Graph state has become corrupted before applying diff");
+            from.add_to_unchecked(removed_edge.edge.to, removed_edge.edge_index);
+
+            let to = self
+                .get_vertex_mut(removed_edge.edge.to)
+                .expect("Graph state has become corrupted before applying diff");
+            to.add_from_unchecked(removed_edge.edge.from, removed_edge.edge_index);
+
+            self.edges.raw_access()[removed_edge.edge_index.0.index] =
+                Element::Some(removed_edge.edge, removed_edge.edge_index.0.generation);
+        }
+
+        Ok(())
+    }
 }
 
-impl<V, E> ops::Index<VertexIndex> for Graph<V, E> {
+impl<V: Clone, E: Clone> ops::Index<VertexIndex> for Graph<V, E> {
     type Output = Vertex<V>;
 
     fn index(&self, index: VertexIndex) -> &Self::Output {
@@ -221,13 +425,13 @@ impl<V, E> ops::Index<VertexIndex> for Graph<V, E> {
     }
 }
 
-impl<V, E> ops::IndexMut<VertexIndex> for Graph<V, E> {
+impl<V: Clone, E: Clone> ops::IndexMut<VertexIndex> for Graph<V, E> {
     fn index_mut(&mut self, index: VertexIndex) -> &mut Self::Output {
         self.get_vertex_mut(index).unwrap()
     }
 }
 
-impl<V, E> ops::Index<EdgeIndex> for Graph<V, E> {
+impl<V: Clone, E: Clone> ops::Index<EdgeIndex> for Graph<V, E> {
     type Output = Edge<E>;
 
     fn index(&self, index: EdgeIndex) -> &Self::Output {
@@ -235,7 +439,7 @@ impl<V, E> ops::Index<EdgeIndex> for Graph<V, E> {
     }
 }
 
-impl<V, E> ops::IndexMut<EdgeIndex> for Graph<V, E> {
+impl<V: Clone, E: Clone> ops::IndexMut<EdgeIndex> for Graph<V, E> {
     fn index_mut(&mut self, index: EdgeIndex) -> &mut Self::Output {
         self.get_edge_mut(index).unwrap()
     }
