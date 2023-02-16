@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "dgg"
+name = "ddgg"
 version = "0.1.0"
 
 [dependencies]
@@ -9,4 +9,4 @@ serde = {version = "1.0", default-features = false, features = ["derive", "alloc
 [features]
 serde = ["dep:serde"]
 
-# default = ["serde"]
+default = ["serde"]
