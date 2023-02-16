@@ -3,10 +3,14 @@
 
 extern crate alloc;
 
-pub mod errors;
-pub mod gen_vec;
-pub mod graph;
-pub mod graph_diff;
+mod errors;
+mod gen_vec;
+mod graph;
+mod graph_diff;
+
+pub use errors::*;
+pub use graph::*;
+pub use graph_diff::GraphDiff;
 
 #[cfg(test)]
 mod graph_tests;
