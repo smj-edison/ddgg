@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     errors::GraphError,
     gen_vec::{Element, GenVec, Index},
-    graph_diff::{AddEdge, AddVertex, RemoveEdge, RemoveVertex},
+    graph_diff::{AddEdge, AddVertex, GraphDiff, RemoveEdge, RemoveVertex},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -119,7 +119,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
     pub fn add_vertex(
         &mut self,
         vertex_data: V,
-    ) -> Result<(VertexIndex, AddVertex<V>), GraphError> {
+    ) -> Result<(VertexIndex, GraphDiff<V, E>), GraphError> {
         let vertex_index = VertexIndex(self.verticies.add(Vertex::new(vertex_data.clone())));
 
         let diff = AddVertex {
@@ -127,7 +127,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
             vertex_data,
         };
 
-        Ok((vertex_index, diff))
+        Ok((vertex_index, GraphDiff::AddVertex(diff)))
     }
 
     pub fn add_edge(
@@ -135,7 +135,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         from_index: VertexIndex,
         to_index: VertexIndex,
         edge_data: E,
-    ) -> Result<(EdgeIndex, AddEdge<E>), GraphError> {
+    ) -> Result<(EdgeIndex, GraphDiff<V, E>), GraphError> {
         self.assert_vertex_exists(from_index)?;
         self.assert_vertex_exists(to_index)?;
 
@@ -160,10 +160,21 @@ impl<V: Clone, E: Clone> Graph<V, E> {
             edge_data,
         };
 
-        Ok((edge_index, diff))
+        Ok((edge_index, GraphDiff::AddEdge(diff)))
     }
 
-    pub fn remove_edge(&mut self, edge_index: EdgeIndex) -> Result<(E, RemoveEdge<E>), GraphError> {
+    pub fn remove_edge(
+        &mut self,
+        edge_index: EdgeIndex,
+    ) -> Result<(E, GraphDiff<V, E>), GraphError> {
+        self.remove_edge_internal(edge_index)
+            .map(|(edge, diff)| (edge, GraphDiff::RemoveEdge(diff)))
+    }
+
+    fn remove_edge_internal(
+        &mut self,
+        edge_index: EdgeIndex,
+    ) -> Result<(E, RemoveEdge<E>), GraphError> {
         let edge = self.get_edge(edge_index)?;
         let from_index = edge.from;
         let to_index = edge.to;
@@ -199,7 +210,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
 
         let edge_diffs: Vec<RemoveEdge<E>> = connections
             .iter()
-            .map(|(_, connection_index)| self.remove_edge(*connection_index).unwrap().1)
+            .map(|(_, connection_index)| self.remove_edge_internal(*connection_index).unwrap().1)
             .collect();
 
         // finally remove the vertex
@@ -213,6 +224,26 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         };
 
         Ok((vertex_data, diff))
+    }
+
+    pub fn apply_diff(&mut self, diff: GraphDiff<V, E>) -> Result<(), GraphError> {
+        match diff {
+            GraphDiff::AddVertex(add_vertex) => self.apply_add_vertex_diff(add_vertex),
+            GraphDiff::AddEdge(add_edge) => self.apply_add_edge_diff(add_edge),
+            GraphDiff::RemoveEdge(remove_edge) => self.apply_remove_edge_diff(remove_edge),
+            GraphDiff::RemoveVertex(remove_vertex) => self.apply_remove_vertex_diff(remove_vertex),
+        }
+    }
+
+    pub fn rollback_diff(&mut self, diff: GraphDiff<V, E>) -> Result<(), GraphError> {
+        match diff {
+            GraphDiff::AddVertex(add_vertex) => self.rollback_add_vertex_diff(add_vertex),
+            GraphDiff::AddEdge(add_edge) => self.rollback_add_edge_diff(add_edge),
+            GraphDiff::RemoveEdge(remove_edge) => self.rollback_remove_edge_diff(remove_edge),
+            GraphDiff::RemoveVertex(remove_vertex) => {
+                self.rollback_remove_vertex_diff(remove_vertex)
+            }
+        }
     }
 }
 
@@ -264,7 +295,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         }
     }
 
-    pub fn apply_add_vertex_diff(&mut self, diff: AddVertex<V>) -> Result<(), GraphError> {
+    fn apply_add_vertex_diff(&mut self, diff: AddVertex<V>) -> Result<(), GraphError> {
         if !self.verticies.is_replaceable_by_index(diff.vertex_index.0) {
             return Err(GraphError::DiffAlreadyApplied);
         }
@@ -277,7 +308,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         Ok(())
     }
 
-    pub fn apply_add_edge_diff(&mut self, diff: AddEdge<E>) -> Result<(), GraphError> {
+    fn apply_add_edge_diff(&mut self, diff: AddEdge<E>) -> Result<(), GraphError> {
         self.assert_vertex_exists(diff.from)?;
         self.assert_vertex_exists(diff.to)?;
 
@@ -305,7 +336,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         Ok(())
     }
 
-    pub fn apply_remove_edge_diff(&mut self, diff: RemoveEdge<E>) -> Result<(), GraphError> {
+    fn apply_remove_edge_diff(&mut self, diff: RemoveEdge<E>) -> Result<(), GraphError> {
         self.assert_vertex_exists(diff.edge.from)?;
         self.assert_vertex_exists(diff.edge.to)?;
         self.assert_edge_exists(diff.edge_index)?;
@@ -317,7 +348,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         Ok(())
     }
 
-    pub fn apply_remove_vertex_diff(&mut self, diff: RemoveVertex<V, E>) -> Result<(), GraphError> {
+    fn apply_remove_vertex_diff(&mut self, diff: RemoveVertex<V, E>) -> Result<(), GraphError> {
         self.assert_vertex_exists(diff.vertex_index)?;
 
         self.remove_vertex(diff.vertex_index)
@@ -326,7 +357,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         Ok(())
     }
 
-    pub fn rollback_add_vertex_diff(&mut self, diff: AddVertex<V>) -> Result<(), GraphError> {
+    fn rollback_add_vertex_diff(&mut self, diff: AddVertex<V>) -> Result<(), GraphError> {
         // check that the vertex exists
         self.assert_vertex_exists(diff.vertex_index)?;
 
@@ -336,7 +367,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         Ok(())
     }
 
-    pub fn rollback_add_edge_diff(&mut self, diff: AddEdge<E>) -> Result<(), GraphError> {
+    fn rollback_add_edge_diff(&mut self, diff: AddEdge<E>) -> Result<(), GraphError> {
         self.assert_vertex_exists(diff.from)?;
         self.assert_vertex_exists(diff.to)?;
         self.assert_edge_exists(diff.edge_index)?;
@@ -348,7 +379,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         Ok(())
     }
 
-    pub fn rollback_remove_edge_diff(&mut self, diff: RemoveEdge<E>) -> Result<(), GraphError> {
+    fn rollback_remove_edge_diff(&mut self, diff: RemoveEdge<E>) -> Result<(), GraphError> {
         let from_index = diff.edge.from;
         let to_index = diff.edge.to;
 
@@ -377,10 +408,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         Ok(())
     }
 
-    pub fn rollback_remove_vertex_diff(
-        &mut self,
-        diff: RemoveVertex<V, E>,
-    ) -> Result<(), GraphError> {
+    fn rollback_remove_vertex_diff(&mut self, diff: RemoveVertex<V, E>) -> Result<(), GraphError> {
         if !self.verticies.is_replaceable_by_index(diff.vertex_index.0) {
             return Err(GraphError::DiffAlreadyApplied);
         }
