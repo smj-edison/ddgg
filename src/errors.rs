@@ -5,4 +5,5 @@ pub enum GraphError {
     NotConnected,
     VertexDoesNotExist(VertexIndex),
     EdgeDoesNotExist(EdgeIndex),
+    DiffAlreadyApplied,
 }
