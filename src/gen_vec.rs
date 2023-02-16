@@ -11,7 +11,7 @@ pub struct Index {
     pub(crate) generation: u32,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub(crate) enum Element<T> {
     Some(T, u32),
@@ -34,7 +34,7 @@ impl<T> Element<T> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct GenVec<T> {
     vec: Vec<Element<T>>,
@@ -48,7 +48,7 @@ impl<T> GenVec<T> {
     pub fn add(&mut self, value: T) -> Index {
         // check for an existing spot
         let open_slot_index = self.vec.iter().position(|elem| match elem {
-            Element::Some(_, _) => false,
+            Element::Some(_, generation) => generation > &0,
             Element::None(_) => true,
         });
 
@@ -56,11 +56,11 @@ impl<T> GenVec<T> {
         if let Some(open_slot_index) = open_slot_index {
             let generation = self.vec[open_slot_index].generation();
 
-            self.vec[open_slot_index] = Element::Some(value, generation + 1);
+            self.vec[open_slot_index] = Element::Some(value, generation);
 
             Index {
                 index: open_slot_index,
-                generation: generation + 1,
+                generation: generation,
             }
         } else {
             // else, add it to the end
@@ -117,15 +117,38 @@ impl<T> GenVec<T> {
         }
     }
 
+    pub(crate) fn remove_keep_generation(&mut self, index: Index) -> Option<T> {
+        let can_take = match self.vec[index.index] {
+            Element::Some(_, generation) => generation == index.generation,
+            Element::None(_) => false,
+        };
+
+        if can_take {
+            let removed = mem::replace(&mut self.vec[index.index], Element::None(index.generation));
+
+            Some(removed.as_some().unwrap())
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn raw_access(&mut self) -> &mut Vec<Element<T>> {
         &mut self.vec
     }
 
-    pub(crate) fn is_replaceable_by_index(&self, index: Index) -> bool {
+    pub(crate) fn is_replaceable_by_index_rollback(&self, index: Index) -> bool {
+        if let Element::None(generation) = self.vec[index.index] {
+            generation == index.generation + 1
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn is_replaceable_by_index_apply(&self, index: Index) -> bool {
         if let Element::None(generation) = self.vec[index.index] {
             generation == index.generation
         } else {
-            true
+            false
         }
     }
 }
