@@ -1,6 +1,6 @@
 [package]
 categories = ["algorithms", "no-std"]
-discription = "A stable graph with undo/redo built in."
+description = "A stable graph with undo/redo built in."
 documentation = "https://docs.rs/ddgg"
 edition = "2021"
 homepage = "https://github.com/smj-edison/ddgg"
