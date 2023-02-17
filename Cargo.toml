@@ -1,11 +1,14 @@
 [package]
 categories = ["algorithms", "no-std"]
 discription = "A stable graph with undo/redo built in."
+documentation = "https://docs.rs/ddgg"
 edition = "2021"
+homepage = "https://github.com/smj-edison/ddgg"
 keywords = ["graph", "algorithms", "history", "stable", "undo"]
 license = "MIT OR Apache-2.0"
 name = "ddgg"
 readme = "README.md"
+repository = "https://github.com/smj-edison/ddgg"
 version = "0.1.0"
 
 [dependencies]
