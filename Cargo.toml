@@ -1,6 +1,11 @@
 [package]
+categories = ["algorithms", "no-std"]
+discription = "A stable graph with undo/redo built in."
 edition = "2021"
+keywords = ["graph", "algorithms", "history", "stable", "undo"]
+license = "MIT OR Apache-2.0"
 name = "ddgg"
+readme = "README.md"
 version = "0.1.0"
 
 [dependencies]
