@@ -11,10 +11,10 @@ use crate::{
     graph_diff::{AddEdge, AddVertex, GraphDiff, RemoveEdge, RemoveVertex},
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct VertexIndex(pub(crate) Index);
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EdgeIndex(pub(crate) Index);
 
@@ -251,6 +251,20 @@ impl<V: Clone, E: Clone> Graph<V, E> {
                 self.rollback_remove_vertex_diff(remove_vertex)
             }
         }
+    }
+
+    pub fn shared_edges(
+        &self,
+        from: VertexIndex,
+        to: VertexIndex,
+    ) -> Result<Vec<EdgeIndex>, GraphError> {
+        Ok(self
+            .get_vertex(from)?
+            .get_connections_to()
+            .iter()
+            .filter(|connection| connection.0 == to)
+            .map(|connection| connection.1)
+            .collect())
     }
 }
 
