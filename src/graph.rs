@@ -325,6 +325,14 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         &self.edges
     }
 
+    pub fn vertex_indexes(&self) -> impl Iterator<Item = VertexIndex> + '_ {
+        self.verticies.indexes().map(|index| VertexIndex(index))
+    }
+
+    pub fn edge_indexes(&self) -> impl Iterator<Item = EdgeIndex> + '_ {
+        self.edges.indexes().map(|index| EdgeIndex(index))
+    }
+
     fn apply_add_vertex_diff(&mut self, diff: AddVertex<V>) -> Result<(), GraphError> {
         if !self
             .verticies

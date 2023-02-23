@@ -132,6 +132,19 @@ impl<T> GenVec<T> {
         })
     }
 
+    pub fn indexes(&self) -> impl Iterator<Item = Index> + '_ {
+        self.vec
+            .iter()
+            .enumerate()
+            .filter_map(|(i, element)| match element {
+                Element::Some(_, generation) => Some(Index {
+                    index: i,
+                    generation: *generation,
+                }),
+                Element::None(_) => None,
+            })
+    }
+
     pub(crate) fn remove_keep_generation(&mut self, index: Index) -> Option<T> {
         let can_take = match self.vec[index.index] {
             Element::Some(_, generation) => generation == index.generation,
