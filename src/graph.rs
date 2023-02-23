@@ -531,6 +531,12 @@ impl<V: Clone, E: Clone> Graph<V, E> {
     }
 }
 
+impl<V: Clone, E: Clone> Default for Graph<V, E> {
+    fn default() -> Self {
+        Graph::new()
+    }
+}
+
 impl<V: Clone, E: Clone> ops::Index<VertexIndex> for Graph<V, E> {
     type Output = Vertex<V>;
 
