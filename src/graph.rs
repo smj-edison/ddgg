@@ -252,20 +252,6 @@ impl<V: Clone, E: Clone> Graph<V, E> {
             }
         }
     }
-
-    pub fn shared_edges(
-        &self,
-        from: VertexIndex,
-        to: VertexIndex,
-    ) -> Result<Vec<EdgeIndex>, GraphError> {
-        Ok(self
-            .get_vertex(from)?
-            .get_connections_to()
-            .iter()
-            .filter(|connection| connection.0 == to)
-            .map(|connection| connection.1)
-            .collect())
-    }
 }
 
 // Utility functions
@@ -314,6 +300,29 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         } else {
             Ok(())
         }
+    }
+
+    /// Get a list of edges between two nodes. This only returns connections in one direction.
+    pub fn shared_edges(
+        &self,
+        from: VertexIndex,
+        to: VertexIndex,
+    ) -> Result<Vec<EdgeIndex>, GraphError> {
+        Ok(self
+            .get_vertex(from)?
+            .get_connections_to()
+            .iter()
+            .filter(|connection| connection.0 == to)
+            .map(|connection| connection.1)
+            .collect())
+    }
+
+    pub fn get_verticies(&self) -> &GenVec<Vertex<V>> {
+        &self.verticies
+    }
+
+    pub fn get_edges(&self) -> &GenVec<Edge<E>> {
+        &self.edges
     }
 
     fn apply_add_vertex_diff(&mut self, diff: AddVertex<V>) -> Result<(), GraphError> {

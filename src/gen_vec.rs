@@ -13,7 +13,7 @@ pub struct Index {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub(crate) enum Element<T> {
+pub enum Element<T> {
     Some(T, u32),
     None(u32),
 }
@@ -115,6 +115,21 @@ impl<T> GenVec<T> {
         } else {
             None
         }
+    }
+
+    pub fn len(&self) -> usize {
+        self.vec.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.vec.is_empty()
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &T> {
+        self.vec.iter().filter_map(|element| match element {
+            Element::Some(value, _) => Some(value),
+            Element::None(_) => None,
+        })
     }
 
     pub(crate) fn remove_keep_generation(&mut self, index: Index) -> Option<T> {
