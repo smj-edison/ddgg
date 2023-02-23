@@ -263,11 +263,19 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         }
     }
 
-    pub fn get_vertex_mut(&mut self, index: VertexIndex) -> Result<&mut Vertex<V>, GraphError> {
+    fn get_vertex_mut(&mut self, index: VertexIndex) -> Result<&mut Vertex<V>, GraphError> {
         match self.verticies.get_mut(index.0) {
             Some(vertex) => Ok(vertex),
             None => Err(GraphError::VertexDoesNotExist(index)),
         }
+    }
+
+    pub fn get_vertex_data(&self, index: VertexIndex) -> Result<&V, GraphError> {
+        Ok(&self.get_vertex(index)?.data)
+    }
+
+    pub fn get_vertex_data_mut(&mut self, index: VertexIndex) -> Result<&mut V, GraphError> {
+        Ok(&mut self.get_vertex_mut(index)?.data)
     }
 
     pub fn get_edge(&self, index: EdgeIndex) -> Result<&Edge<E>, GraphError> {
