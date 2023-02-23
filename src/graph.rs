@@ -285,11 +285,19 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         }
     }
 
-    pub fn get_edge_mut(&mut self, index: EdgeIndex) -> Result<&mut Edge<E>, GraphError> {
+    fn get_edge_mut(&mut self, index: EdgeIndex) -> Result<&mut Edge<E>, GraphError> {
         match self.edges.get_mut(index.0) {
             Some(edge) => Ok(edge),
             None => Err(GraphError::EdgeDoesNotExist(index)),
         }
+    }
+
+    pub fn get_edge_data(&self, index: EdgeIndex) -> Result<&E, GraphError> {
+        Ok(&self.get_edge(index)?.data)
+    }
+
+    pub fn get_edge_data_mut(&mut self, index: EdgeIndex) -> Result<&mut E, GraphError> {
+        Ok(&mut self.get_edge_mut(index)?.data)
     }
 
     /// Check that a vertex exists. Returns a result containing `VertexDoesNotExist` if it doesn't exist
