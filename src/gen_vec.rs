@@ -48,8 +48,8 @@ impl<T> GenVec<T> {
     pub fn add(&mut self, value: T) -> Index {
         // check for an existing spot
         let open_slot_index = self.vec.iter().position(|elem| match elem {
-            Element::Some(_, generation) => generation > &0,
-            Element::None(_) => true,
+            Element::Some(..) => false,
+            Element::None(generation) => generation > &0,
         });
 
         // there was an open slot, put it there
