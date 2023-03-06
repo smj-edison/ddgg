@@ -16,22 +16,22 @@ pub struct Index {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "js_names", serde(tag = "variant", content = "data"))]
 pub enum Element<T> {
-    Some(T, u32),
-    None(u32),
+    Occupied(T, u32),
+    Open(u32),
 }
 
 impl<T> Element<T> {
-    pub fn as_some(self) -> Option<T> {
+    pub fn as_occupied(self) -> Option<T> {
         match self {
-            Self::Some(value, _) => Some(value),
-            Self::None(_) => None,
+            Self::Occupied(value, _) => Some(value),
+            Self::Open(_) => None,
         }
     }
 
     pub fn generation(&self) -> u32 {
         match self {
-            Self::Some(_, generation) => *generation,
-            Self::None(generation) => *generation,
+            Self::Occupied(_, generation) => *generation,
+            Self::Open(generation) => *generation,
         }
     }
 }
@@ -50,15 +50,15 @@ impl<T> GenVec<T> {
     pub fn add(&mut self, value: T) -> Index {
         // check for an existing spot
         let open_slot_index = self.vec.iter().position(|elem| match elem {
-            Element::Some(..) => false,
-            Element::None(generation) => generation > &0,
+            Element::Occupied(..) => false,
+            Element::Open(generation) => generation > &0,
         });
 
         // there was an open slot, put it there
         if let Some(open_slot_index) = open_slot_index {
             let generation = self.vec[open_slot_index].generation();
 
-            self.vec[open_slot_index] = Element::Some(value, generation);
+            self.vec[open_slot_index] = Element::Occupied(value, generation);
 
             Index {
                 index: open_slot_index,
@@ -66,7 +66,7 @@ impl<T> GenVec<T> {
             }
         } else {
             // else, add it to the end
-            self.vec.push(Element::Some(value, 0));
+            self.vec.push(Element::Occupied(value, 0));
 
             Index {
                 index: self.vec.len() - 1,
@@ -77,43 +77,43 @@ impl<T> GenVec<T> {
 
     pub fn get(&self, index: Index) -> Option<&T> {
         match self.vec[index.index] {
-            Element::Some(ref value, generation) => {
+            Element::Occupied(ref value, generation) => {
                 if generation == index.generation {
                     Some(value)
                 } else {
                     None
                 }
             }
-            Element::None(_) => None,
+            Element::Open(_) => None,
         }
     }
 
     pub fn get_mut(&mut self, index: Index) -> Option<&mut T> {
         match self.vec[index.index] {
-            Element::Some(ref mut value, generation) => {
+            Element::Occupied(ref mut value, generation) => {
                 if generation == index.generation {
                     Some(value)
                 } else {
                     None
                 }
             }
-            Element::None(_) => None,
+            Element::Open(_) => None,
         }
     }
 
     pub fn remove(&mut self, index: Index) -> Option<T> {
         let can_take = match self.vec[index.index] {
-            Element::Some(_, generation) => generation == index.generation,
-            Element::None(_) => false,
+            Element::Occupied(_, generation) => generation == index.generation,
+            Element::Open(_) => false,
         };
 
         if can_take {
             let removed = mem::replace(
                 &mut self.vec[index.index],
-                Element::None(index.generation + 1),
+                Element::Open(index.generation + 1),
             );
 
-            Some(removed.as_some().unwrap())
+            Some(removed.as_occupied().unwrap())
         } else {
             None
         }
@@ -129,8 +129,8 @@ impl<T> GenVec<T> {
 
     pub fn values(&self) -> impl Iterator<Item = &T> {
         self.vec.iter().filter_map(|element| match element {
-            Element::Some(value, _) => Some(value),
-            Element::None(_) => None,
+            Element::Occupied(value, _) => Some(value),
+            Element::Open(_) => None,
         })
     }
 
@@ -139,24 +139,24 @@ impl<T> GenVec<T> {
             .iter()
             .enumerate()
             .filter_map(|(i, element)| match element {
-                Element::Some(_, generation) => Some(Index {
+                Element::Occupied(_, generation) => Some(Index {
                     index: i,
                     generation: *generation,
                 }),
-                Element::None(_) => None,
+                Element::Open(_) => None,
             })
     }
 
     pub(crate) fn remove_keep_generation(&mut self, index: Index) -> Option<T> {
         let can_take = match self.vec[index.index] {
-            Element::Some(_, generation) => generation == index.generation,
-            Element::None(_) => false,
+            Element::Occupied(_, generation) => generation == index.generation,
+            Element::Open(_) => false,
         };
 
         if can_take {
-            let removed = mem::replace(&mut self.vec[index.index], Element::None(index.generation));
+            let removed = mem::replace(&mut self.vec[index.index], Element::Open(index.generation));
 
-            Some(removed.as_some().unwrap())
+            Some(removed.as_occupied().unwrap())
         } else {
             None
         }
@@ -167,7 +167,7 @@ impl<T> GenVec<T> {
     }
 
     pub(crate) fn is_replaceable_by_index_rollback(&self, index: Index) -> bool {
-        if let Element::None(generation) = self.vec[index.index] {
+        if let Element::Open(generation) = self.vec[index.index] {
             generation == index.generation + 1
         } else {
             false
@@ -175,7 +175,7 @@ impl<T> GenVec<T> {
     }
 
     pub(crate) fn is_replaceable_by_index_apply(&self, index: Index) -> bool {
-        if let Element::None(generation) = self.vec[index.index] {
+        if let Element::Open(generation) = self.vec[index.index] {
             generation == index.generation
         } else {
             false

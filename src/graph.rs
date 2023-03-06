@@ -360,7 +360,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
             return Err(GraphError::InvalidDiff);
         }
 
-        self.verticies.raw_access()[diff.vertex_index.0.index] = Element::Some(
+        self.verticies.raw_access()[diff.vertex_index.0.index] = Element::Occupied(
             Vertex::new(diff.vertex_data),
             diff.vertex_index.0.generation,
         );
@@ -378,7 +378,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         }
 
         // apply the diff
-        self.edges.raw_access()[diff.edge_index.0.index] = Element::Some(
+        self.edges.raw_access()[diff.edge_index.0.index] = Element::Occupied(
             Edge::new(diff.from, diff.to, diff.edge_data),
             diff.edge_index.0.generation,
         );
@@ -456,7 +456,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
 
         // apply the diff
         self.edges.raw_access()[diff.edge_index.0.index] =
-            Element::Some(diff.edge, diff.edge_index.0.generation);
+            Element::Occupied(diff.edge, diff.edge_index.0.generation);
 
         let from = self
             .get_vertex_mut(from_index)
@@ -490,7 +490,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         }
 
         self.verticies.raw_access()[diff.vertex_index.0.index] =
-            Element::Some(diff.vertex, diff.vertex_index.0.generation);
+            Element::Occupied(diff.vertex, diff.vertex_index.0.generation);
 
         for removed_edge in diff.removed_edges {
             let from = self
@@ -504,7 +504,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
             to.add_from_unchecked(removed_edge.edge.from, removed_edge.edge_index);
 
             self.edges.raw_access()[removed_edge.edge_index.0.index] =
-                Element::Some(removed_edge.edge, removed_edge.edge_index.0.generation);
+                Element::Occupied(removed_edge.edge, removed_edge.edge_index.0.generation);
         }
 
         Ok(())
