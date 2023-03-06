@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "js_names", serde(rename_all = "camelCase"))]
 pub struct Index {
     pub(crate) index: usize,
     pub(crate) generation: u32,
@@ -13,6 +14,7 @@ pub struct Index {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "js_names", serde(tag = "variant", content = "data"))]
 pub enum Element<T> {
     Some(T, u32),
     None(u32),

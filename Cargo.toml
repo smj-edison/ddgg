@@ -15,6 +15,7 @@ version = "0.4.1"
 serde = {version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true}
 
 [features]
+js_names = []
 serde = ["dep:serde"]
 
 default = ["serde"]

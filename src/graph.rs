@@ -20,6 +20,7 @@ pub struct EdgeIndex(pub(crate) Index);
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "js_names", serde(rename_all = "camelCase"))]
 pub struct Vertex<T> {
     connections_from: Vec<(VertexIndex, EdgeIndex)>,
     connections_to: Vec<(VertexIndex, EdgeIndex)>,
@@ -78,6 +79,7 @@ impl<T> Vertex<T> {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "js_names", serde(rename_all = "camelCase"))]
 pub struct Edge<T> {
     from: VertexIndex,
     to: VertexIndex,
@@ -101,6 +103,7 @@ impl<T> Edge<T> {
 /// Main graph structure
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "js_names", serde(rename_all = "camelCase"))]
 pub struct Graph<V, E> {
     verticies: GenVec<Vertex<V>>,
     edges: GenVec<Edge<E>>,
