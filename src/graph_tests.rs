@@ -61,3 +61,47 @@ fn test_undo_redo() {
 
     assert_eq!(graph.get_vertex(second).unwrap().data, 4);
 }
+
+#[test]
+fn test_undo_redo_edges() {
+    let mut graph: Graph<String, String> = Graph::new();
+
+    let (first_vertex, diff_1) = graph.add_vertex("first_vertex".into()).unwrap();
+    let (second_vertex, diff_2) = graph.add_vertex("second_vertex".into()).unwrap();
+    let (third_vertex, diff_3) = graph.add_vertex("third_vertex".into()).unwrap();
+
+    let (first_edge, diff_4) = graph
+        .add_edge(first_vertex, second_vertex, "first_edge".into())
+        .unwrap();
+    let (second_edge, diff_5) = graph
+        .add_edge(second_vertex, third_vertex, "second_edge".into())
+        .unwrap();
+
+    let (_, diff_6) = graph.remove_vertex(third_vertex).unwrap();
+    graph.get_edge(second_edge).unwrap_err();
+
+    let (_, diff_7) = graph.remove_edge(first_edge).unwrap();
+    graph.get_edge(first_edge).unwrap_err();
+
+    graph.rollback_diff(diff_7.clone()).unwrap();
+    graph.get_edge(first_edge).unwrap();
+    graph.rollback_diff(diff_6.clone()).unwrap();
+    graph.get_edge(second_edge).unwrap();
+    graph.rollback_diff(diff_5.clone()).unwrap();
+    graph.rollback_diff(diff_4.clone()).unwrap();
+    graph.rollback_diff(diff_3.clone()).unwrap();
+    graph.rollback_diff(diff_2.clone()).unwrap();
+    graph.rollback_diff(diff_1.clone()).unwrap();
+
+    graph.apply_diff(diff_1.clone()).unwrap();
+    graph.apply_diff(diff_2.clone()).unwrap();
+    graph.apply_diff(diff_3.clone()).unwrap();
+    graph.apply_diff(diff_4.clone()).unwrap();
+    graph.apply_diff(diff_5.clone()).unwrap();
+    graph.get_edge(second_edge).unwrap();
+    graph.apply_diff(diff_6.clone()).unwrap();
+    graph.get_edge(second_edge).unwrap_err();
+    graph.get_edge(first_edge).unwrap();
+    graph.apply_diff(diff_7.clone()).unwrap();
+    graph.get_edge(first_edge).unwrap_err();
+}

@@ -12,6 +12,16 @@ pub struct Index {
     pub(crate) generation: u32,
 }
 
+impl Index {
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    pub fn generation(&self) -> u32 {
+        self.generation
+    }
+}
+
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "js_names", serde(tag = "variant", content = "data"))]
