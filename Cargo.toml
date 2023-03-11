@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 name = "ddgg"
 readme = "README.md"
 repository = "https://github.com/smj-edison/ddgg"
-version = "0.4.1"
+version = "0.5"
 
 [dependencies]
 serde = {version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true}
