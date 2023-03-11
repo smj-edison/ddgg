@@ -157,6 +157,10 @@ impl<T> GenVec<T> {
             })
     }
 
+    pub fn clear(&mut self) {
+        self.vec.clear();
+    }
+
     pub(crate) fn remove_keep_generation(&mut self, index: Index) -> Option<T> {
         let can_take = match self.vec[index.index] {
             Element::Occupied(_, generation) => generation == index.generation,
