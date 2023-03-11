@@ -10,6 +10,7 @@ mod graph_diff;
 
 pub use errors::*;
 pub use gen_vec::GenVec;
+pub use gen_vec::Index;
 pub use graph::*;
 pub use graph_diff::GraphDiff;
 
