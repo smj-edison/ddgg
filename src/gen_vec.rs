@@ -4,7 +4,7 @@ use core::mem;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "js_names", serde(rename_all = "camelCase"))]
 pub struct Index {
@@ -49,6 +49,7 @@ impl<T> Element<T> {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct GenVec<T> {
+    #[serde(flatten)]
     vec: Vec<Element<T>>,
 }
 
