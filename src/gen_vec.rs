@@ -48,8 +48,8 @@ impl<T> Element<T> {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[repr(transparent)]
 pub struct GenVec<T> {
-    #[serde(flatten)]
     vec: Vec<Element<T>>,
 }
 
