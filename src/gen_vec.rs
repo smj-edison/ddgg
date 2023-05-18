@@ -162,6 +162,10 @@ impl<T> GenVec<T> {
         self.vec.clear();
     }
 
+    pub fn iter(&self) -> GenVecIter<T> {
+        GenVecIter::new(self)
+    }
+
     pub(crate) fn remove_keep_generation(&mut self, index: Index) -> Option<T> {
         let can_take = match self.vec[index.index] {
             Element::Occupied(_, generation) => generation == index.generation,
@@ -177,7 +181,11 @@ impl<T> GenVec<T> {
         }
     }
 
-    pub(crate) fn raw_access(&mut self) -> &mut Vec<Element<T>> {
+    pub(crate) fn vec_ref(&self) -> &Vec<Element<T>> {
+        &self.vec
+    }
+
+    pub(crate) fn vec_ref_mut(&mut self) -> &mut Vec<Element<T>> {
         &mut self.vec
     }
 
@@ -195,5 +203,44 @@ impl<T> GenVec<T> {
         } else {
             false
         }
+    }
+}
+
+pub struct GenVecIter<'a, T> {
+    vec: &'a GenVec<T>,
+    index: usize,
+    len: usize,
+}
+
+impl<'a, T> GenVecIter<'a, T> {
+    pub(crate) fn new(vec: &'a GenVec<T>) -> GenVecIter<'a, T> {
+        GenVecIter {
+            vec,
+            index: 0,
+            len: vec.len(),
+        }
+    }
+}
+
+impl<'a, T> Iterator for GenVecIter<'a, T> {
+    type Item = (Index, &'a T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.index < self.len {
+            let index = self.index;
+            self.index += 1;
+
+            if let Element::Occupied(element, generation) = &self.vec.vec_ref()[index] {
+                return Some((
+                    Index {
+                        index,
+                        generation: *generation,
+                    },
+                    element,
+                ));
+            }
+        }
+
+        None
     }
 }

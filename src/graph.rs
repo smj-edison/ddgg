@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     errors::GraphError,
-    gen_vec::{Element, GenVec, Index},
+    gen_vec::{Element, GenVec, GenVecIter, Index},
     graph_diff::{AddEdge, AddVertex, GraphDiff, RemoveEdge, RemoveVertex},
 };
 
@@ -352,6 +352,14 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         self.edges.indexes().map(|index| EdgeIndex(index))
     }
 
+    pub fn vertex_iter(&self) -> GenVecIter<Vertex<V>> {
+        self.verticies.iter()
+    }
+
+    pub fn edge_iter(&self) -> GenVecIter<Edge<E>> {
+        self.edges.iter()
+    }
+
     fn apply_add_vertex_diff(&mut self, diff: AddVertex<V>) -> Result<(), GraphError> {
         if !self
             .verticies
@@ -360,7 +368,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
             return Err(GraphError::InvalidDiff);
         }
 
-        self.verticies.raw_access()[diff.vertex_index.0.index] = Element::Occupied(
+        self.verticies.vec_ref_mut()[diff.vertex_index.0.index] = Element::Occupied(
             Vertex::new(diff.vertex_data),
             diff.vertex_index.0.generation,
         );
@@ -378,7 +386,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         }
 
         // apply the diff
-        self.edges.raw_access()[diff.edge_index.0.index] = Element::Occupied(
+        self.edges.vec_ref_mut()[diff.edge_index.0.index] = Element::Occupied(
             Edge::new(diff.from, diff.to, diff.edge_data),
             diff.edge_index.0.generation,
         );
@@ -455,7 +463,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         }
 
         // apply the diff
-        self.edges.raw_access()[diff.edge_index.0.index] =
+        self.edges.vec_ref_mut()[diff.edge_index.0.index] =
             Element::Occupied(diff.edge, diff.edge_index.0.generation);
 
         let from = self
@@ -489,7 +497,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
             }
         }
 
-        self.verticies.raw_access()[diff.vertex_index.0.index] =
+        self.verticies.vec_ref_mut()[diff.vertex_index.0.index] =
             Element::Occupied(diff.vertex, diff.vertex_index.0.generation);
 
         for removed_edge in diff.removed_edges {
@@ -503,7 +511,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
                 .expect("Graph state has become corrupted before applying diff");
             to.add_from_unchecked(removed_edge.edge.from, removed_edge.edge_index);
 
-            self.edges.raw_access()[removed_edge.edge_index.0.index] =
+            self.edges.vec_ref_mut()[removed_edge.edge_index.0.index] =
                 Element::Occupied(removed_edge.edge, removed_edge.edge_index.0.generation);
         }
 
