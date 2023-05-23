@@ -162,8 +162,52 @@ impl<T> GenVec<T> {
         self.vec.clear();
     }
 
-    pub fn iter(&self) -> GenVecIter<T> {
-        GenVecIter::new(self)
+    pub fn iter(&self) -> impl Iterator<Item = (Index, &T)> + '_ {
+        self.vec
+            .iter()
+            .enumerate()
+            .filter_map(|(i, element)| match element {
+                Element::Occupied(value, generation) => Some((
+                    Index {
+                        index: i,
+                        generation: *generation,
+                    },
+                    value,
+                )),
+                Element::Open(_) => None,
+            })
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (Index, &mut T)> + '_ {
+        self.vec
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(i, element)| match element {
+                Element::Occupied(value, generation) => Some((
+                    Index {
+                        index: i,
+                        generation: *generation,
+                    },
+                    value,
+                )),
+                Element::Open(_) => None,
+            })
+    }
+
+    pub fn into_iter(self) -> impl Iterator<Item = (Index, T)> {
+        self.vec
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, element)| match element {
+                Element::Occupied(value, generation) => Some((
+                    Index {
+                        index: i,
+                        generation,
+                    },
+                    value,
+                )),
+                Element::Open(_) => None,
+            })
     }
 
     pub(crate) fn remove_keep_generation(&mut self, index: Index) -> Option<T> {
@@ -203,44 +247,5 @@ impl<T> GenVec<T> {
         } else {
             false
         }
-    }
-}
-
-pub struct GenVecIter<'a, T> {
-    vec: &'a GenVec<T>,
-    index: usize,
-    len: usize,
-}
-
-impl<'a, T> GenVecIter<'a, T> {
-    pub(crate) fn new(vec: &'a GenVec<T>) -> GenVecIter<'a, T> {
-        GenVecIter {
-            vec,
-            index: 0,
-            len: vec.len(),
-        }
-    }
-}
-
-impl<'a, T> Iterator for GenVecIter<'a, T> {
-    type Item = (Index, &'a T);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.index < self.len {
-            let index = self.index;
-            self.index += 1;
-
-            if let Element::Occupied(element, generation) = &self.vec.vec_ref()[index] {
-                return Some((
-                    Index {
-                        index,
-                        generation: *generation,
-                    },
-                    element,
-                ));
-            }
-        }
-
-        None
     }
 }
