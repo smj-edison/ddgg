@@ -352,25 +352,37 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         self.edges.indexes().map(|index| EdgeIndex(index))
     }
 
-    pub fn vertex_iter(&self) -> impl Iterator<Item = (VertexIndex, &V)> + '_ {
+    pub fn vertex_iter(&self) -> impl Iterator<Item = (VertexIndex, &Vertex<V>)> + '_ {
+        self.verticies
+            .iter()
+            .map(|(index, vertex)| (VertexIndex(index), vertex))
+    }
+
+    pub fn edge_iter(&self) -> impl Iterator<Item = (EdgeIndex, &Edge<E>)> + '_ {
+        self.edges
+            .iter()
+            .map(|(index, edge)| (EdgeIndex(index), edge))
+    }
+
+    pub fn vertex_data_iter(&self) -> impl Iterator<Item = (VertexIndex, &V)> + '_ {
         self.verticies
             .iter()
             .map(|(index, vertex)| (VertexIndex(index), &vertex.data))
     }
 
-    pub fn edge_iter(&self) -> impl Iterator<Item = (EdgeIndex, &E)> + '_ {
+    pub fn edge_data_iter(&self) -> impl Iterator<Item = (EdgeIndex, &E)> + '_ {
         self.edges
             .iter()
             .map(|(index, edge)| (EdgeIndex(index), &edge.data))
     }
 
-    pub fn vertex_iter_mut(&mut self) -> impl Iterator<Item = (VertexIndex, &mut V)> + '_ {
+    pub fn vertex_data_iter_mut(&mut self) -> impl Iterator<Item = (VertexIndex, &mut V)> + '_ {
         self.verticies
             .iter_mut()
             .map(|(index, vertex)| (VertexIndex(index), &mut vertex.data))
     }
 
-    pub fn edge_iter_mut(&mut self) -> impl Iterator<Item = (EdgeIndex, &mut E)> + '_ {
+    pub fn edge_data_iter_mut(&mut self) -> impl Iterator<Item = (EdgeIndex, &mut E)> + '_ {
         self.edges
             .iter_mut()
             .map(|(index, edge)| (EdgeIndex(index), &mut edge.data))
