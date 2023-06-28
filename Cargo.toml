@@ -9,16 +9,21 @@ license = "MIT OR Apache-2.0"
 name = "ddgg"
 readme = "README.md"
 repository = "https://github.com/smj-edison/ddgg"
-version = "0.6.0"
+version = "0.7.0"
 
 [dependencies]
+snafu = "0.7"
 serde = { version = "1.0", default-features = false, features = [
     "derive",
     "alloc",
 ], optional = true }
 
+[dev-dependencies]
+serde_json = "1.0.74"
+
 [features]
 js_names = []
 serde = ["dep:serde"]
+serde_string_indexes = ["dep:serde"]
 
 default = ["serde"]

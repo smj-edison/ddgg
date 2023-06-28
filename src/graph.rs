@@ -4,11 +4,13 @@ use alloc::vec::Vec;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use snafu::OptionExt;
 
 use crate::{
     errors::GraphError,
     gen_vec::{Element, GenVec, Index},
     graph_diff::{AddEdge, AddVertex, GraphDiff, RemoveEdge, RemoveVertex},
+    EdgeDoesNotExistSnafu, VertexDoesNotExistSnafu,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -185,7 +187,10 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         &mut self,
         edge_index: EdgeIndex,
     ) -> Result<(E, RemoveEdge<E>), GraphError> {
-        let edge = self.get_edge(edge_index)?;
+        let edge = self
+            .get_edge(edge_index)
+            .with_context(|| EdgeDoesNotExistSnafu { index: edge_index })?;
+
         let from_index = edge.from;
         let to_index = edge.to;
 
@@ -212,7 +217,11 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         vertex_index: VertexIndex,
     ) -> Result<(V, GraphDiff<V, E>), GraphError> {
         // check that everything is in proper order
-        let vertex = self.get_vertex(vertex_index)?;
+        let vertex = self
+            .get_vertex(vertex_index)
+            .with_context(|| VertexDoesNotExistSnafu {
+                index: vertex_index,
+            })?;
 
         // remove all connections to the vertex
         let mut connections = vertex.get_connections_from().clone();
@@ -259,54 +268,42 @@ impl<V: Clone, E: Clone> Graph<V, E> {
 
 // Utility functions
 impl<V: Clone, E: Clone> Graph<V, E> {
-    pub fn get_vertex(&self, index: VertexIndex) -> Result<&Vertex<V>, GraphError> {
-        match self.verticies.get(index.0) {
-            Some(vertex) => Ok(vertex),
-            None => Err(GraphError::VertexDoesNotExist(index)),
-        }
+    pub fn get_vertex(&self, index: VertexIndex) -> Option<&Vertex<V>> {
+        self.verticies.get(index.0)
     }
 
-    fn get_vertex_mut(&mut self, index: VertexIndex) -> Result<&mut Vertex<V>, GraphError> {
-        match self.verticies.get_mut(index.0) {
-            Some(vertex) => Ok(vertex),
-            None => Err(GraphError::VertexDoesNotExist(index)),
-        }
+    fn get_vertex_mut(&mut self, index: VertexIndex) -> Option<&mut Vertex<V>> {
+        self.verticies.get_mut(index.0)
     }
 
-    pub fn get_vertex_data(&self, index: VertexIndex) -> Result<&V, GraphError> {
-        Ok(&self.get_vertex(index)?.data)
+    pub fn get_vertex_data(&self, index: VertexIndex) -> Option<&V> {
+        Some(&self.get_vertex(index)?.data)
     }
 
-    pub fn get_vertex_data_mut(&mut self, index: VertexIndex) -> Result<&mut V, GraphError> {
-        Ok(&mut self.get_vertex_mut(index)?.data)
+    pub fn get_vertex_data_mut(&mut self, index: VertexIndex) -> Option<&mut V> {
+        Some(&mut self.get_vertex_mut(index)?.data)
     }
 
-    pub fn get_edge(&self, index: EdgeIndex) -> Result<&Edge<E>, GraphError> {
-        match self.edges.get(index.0) {
-            Some(edge) => Ok(edge),
-            None => Err(GraphError::EdgeDoesNotExist(index)),
-        }
+    pub fn get_edge(&self, index: EdgeIndex) -> Option<&Edge<E>> {
+        self.edges.get(index.0)
     }
 
-    fn get_edge_mut(&mut self, index: EdgeIndex) -> Result<&mut Edge<E>, GraphError> {
-        match self.edges.get_mut(index.0) {
-            Some(edge) => Ok(edge),
-            None => Err(GraphError::EdgeDoesNotExist(index)),
-        }
+    fn get_edge_mut(&mut self, index: EdgeIndex) -> Option<&mut Edge<E>> {
+        self.edges.get_mut(index.0)
     }
 
-    pub fn get_edge_data(&self, index: EdgeIndex) -> Result<&E, GraphError> {
-        Ok(&self.get_edge(index)?.data)
+    pub fn get_edge_data(&self, index: EdgeIndex) -> Option<&E> {
+        Some(&self.get_edge(index)?.data)
     }
 
-    pub fn get_edge_data_mut(&mut self, index: EdgeIndex) -> Result<&mut E, GraphError> {
-        Ok(&mut self.get_edge_mut(index)?.data)
+    pub fn get_edge_data_mut(&mut self, index: EdgeIndex) -> Option<&mut E> {
+        Some(&mut self.get_edge_mut(index)?.data)
     }
 
     /// Check that a vertex exists. Returns a result containing `VertexDoesNotExist` if it doesn't exist
     pub fn assert_vertex_exists(&self, index: VertexIndex) -> Result<(), GraphError> {
         if self.verticies.get(index.0).is_none() {
-            Err(GraphError::VertexDoesNotExist(index))
+            Err(GraphError::VertexDoesNotExist { index })
         } else {
             Ok(())
         }
@@ -315,7 +312,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
     // Check that an edge exists. Returns a result containing `EdgeDoesNotExist` if it doesn't exist
     pub fn assert_edge_exists(&self, index: EdgeIndex) -> Result<(), GraphError> {
         if self.edges.get(index.0).is_none() {
-            Err(GraphError::EdgeDoesNotExist(index))
+            Err(GraphError::EdgeDoesNotExist { index })
         } else {
             Ok(())
         }
@@ -328,7 +325,8 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         to: VertexIndex,
     ) -> Result<Vec<EdgeIndex>, GraphError> {
         Ok(self
-            .get_vertex(from)?
+            .get_vertex(from)
+            .with_context(|| VertexDoesNotExistSnafu { index: from })?
             .get_connections_to()
             .iter()
             .filter(|connection| connection.0 == to)
@@ -546,9 +544,11 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         Ok(())
     }
 
-    fn remove_vertex_and_reset(&mut self, vertex_index: VertexIndex) -> Result<V, GraphError> {
+    fn remove_vertex_and_reset(&mut self, index: VertexIndex) -> Result<V, GraphError> {
         // check that everything is in proper order
-        let vertex = self.get_vertex(vertex_index)?;
+        let vertex = self
+            .get_vertex(index)
+            .with_context(|| VertexDoesNotExistSnafu { index })?;
 
         // remove all connections to the vertex
         let mut connections = vertex.get_connections_from().clone();
@@ -559,17 +559,16 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         }
 
         // finally remove the vertex
-        let vertex = self
-            .verticies
-            .remove_keep_generation(vertex_index.0)
-            .unwrap();
+        let vertex = self.verticies.remove_keep_generation(index.0).unwrap();
         let vertex_data = vertex.data.clone();
 
         Ok(vertex_data)
     }
 
     fn remove_edge_and_reset(&mut self, edge_index: EdgeIndex) -> Result<E, GraphError> {
-        let edge = self.get_edge(edge_index)?;
+        let edge = self
+            .get_edge(edge_index)
+            .with_context(|| EdgeDoesNotExistSnafu { index: edge_index })?;
         let from_index = edge.from;
         let to_index = edge.to;
 

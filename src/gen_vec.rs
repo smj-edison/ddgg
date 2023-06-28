@@ -1,15 +1,80 @@
 use alloc::vec::Vec;
 use core::mem;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde_string_indexes")]
+use alloc::{fmt, format};
+#[cfg(feature = "serde_string_indexes")]
+use serde::de;
+#[cfg(any(feature = "serde", feature = "serde_string_indexes"))]
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "js_names", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    all(feature = "serde", not(feature = "serde_string_indexes")),
+    derive(Serialize, Deserialize)
+)]
+#[cfg_attr(
+    all(feature = "serde", not(feature = "serde_string_indexes")),
+    serde(rename_all = "camelCase")
+)]
 pub struct Index {
     pub(crate) index: usize,
     pub(crate) generation: u32,
+}
+
+#[cfg(feature = "serde_string_indexes")]
+impl Serialize for Index {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&format!("{}.{}", self.index, self.generation))
+    }
+}
+
+#[cfg(feature = "serde_string_indexes")]
+impl<'de> Deserialize<'de> for Index {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct StringVisitor;
+
+        impl<'de> de::Visitor<'de> for StringVisitor {
+            type Value = Index;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct StringVisitor")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let (index_str, generation_str) = v.split_once('.').ok_or_else(|| {
+                    de::Error::invalid_value(de::Unexpected::Str(v), &"{index}.{generation}")
+                })?;
+
+                let index: usize = str::parse(index_str).or_else(|_| {
+                    Err(de::Error::invalid_value(
+                        de::Unexpected::Str(index_str),
+                        &"usize index",
+                    ))
+                })?;
+
+                let generation: u32 = str::parse(generation_str).or_else(|_| {
+                    Err(de::Error::invalid_value(
+                        de::Unexpected::Str(generation_str),
+                        &"u32 generation",
+                    ))
+                })?;
+
+                Ok(Index { index, generation })
+            }
+        }
+
+        deserializer.deserialize_str(StringVisitor)
+    }
 }
 
 impl Index {

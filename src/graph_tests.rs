@@ -15,7 +15,7 @@ fn test_use_old_index() {
     assert_ne!(first.0.generation, second.0.generation);
 
     graph.get_vertex(second).unwrap();
-    graph.get_vertex(first).unwrap_err();
+    assert!(matches!(graph.get_vertex(first), None));
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn test_undo_redo() {
     graph.apply_diff(diff_2.clone()).unwrap();
     graph.apply_diff(diff_3.clone()).unwrap();
 
-    graph.get_vertex(first).unwrap_err();
+    assert!(matches!(graph.get_vertex(first), None));
 
     assert_eq!(graph.get_vertex(second).unwrap().data, 4);
 }
@@ -78,10 +78,10 @@ fn test_undo_redo_edges() {
         .unwrap();
 
     let (_, diff_6) = graph.remove_vertex(third_vertex).unwrap();
-    graph.get_edge(second_edge).unwrap_err();
+    assert!(matches!(graph.get_edge(second_edge), None));
 
     let (_, diff_7) = graph.remove_edge(first_edge).unwrap();
-    graph.get_edge(first_edge).unwrap_err();
+    assert!(matches!(graph.get_edge(first_edge), None));
 
     graph.rollback_diff(diff_7.clone()).unwrap();
     graph.get_edge(first_edge).unwrap();
@@ -100,8 +100,24 @@ fn test_undo_redo_edges() {
     graph.apply_diff(diff_5.clone()).unwrap();
     graph.get_edge(second_edge).unwrap();
     graph.apply_diff(diff_6.clone()).unwrap();
-    graph.get_edge(second_edge).unwrap_err();
+    assert!(matches!(graph.get_edge(second_edge), None));
     graph.get_edge(first_edge).unwrap();
     graph.apply_diff(diff_7.clone()).unwrap();
-    graph.get_edge(first_edge).unwrap_err();
+    assert!(matches!(graph.get_edge(first_edge), None));
+}
+
+#[test]
+#[cfg(feature = "serde_string_indexes")]
+fn test_custom_serde() {
+    use crate::VertexIndex;
+
+    let mut graph: Graph<(), ()> = Graph::new();
+
+    let (index, _) = graph.add_vertex(()).unwrap();
+
+    assert_eq!(serde_json::to_string(&index).unwrap(), r#""0.0""#);
+    assert_eq!(
+        serde_json::from_str::<VertexIndex>(&r#""0.0""#).unwrap(),
+        index
+    );
 }
