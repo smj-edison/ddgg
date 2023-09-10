@@ -128,10 +128,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         }
     }
 
-    pub fn add_vertex(
-        &mut self,
-        vertex_data: V,
-    ) -> Result<(VertexIndex, GraphDiff<V, E>), GraphError> {
+    pub fn add_vertex(&mut self, vertex_data: V) -> (VertexIndex, GraphDiff<V, E>) {
         let vertex_index = VertexIndex(self.verticies.add(Vertex::new(vertex_data.clone())));
 
         let diff = AddVertex {
@@ -139,7 +136,7 @@ impl<V: Clone, E: Clone> Graph<V, E> {
             vertex_data,
         };
 
-        Ok((vertex_index, GraphDiff::AddVertex(diff)))
+        (vertex_index, GraphDiff::AddVertex(diff))
     }
 
     pub fn add_edge(
@@ -195,11 +192,8 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         let to_index = edge.to;
 
         // remove the edge (all vertex lookups use unwraps here to preserve the invariant of two-way connections)
-        let from = self.get_vertex_mut(from_index).unwrap();
-        from.remove_to(edge_index).unwrap();
-
-        let to = self.get_vertex_mut(to_index).unwrap();
-        to.remove_from(edge_index).unwrap();
+        self[from_index].remove_to(edge_index).unwrap();
+        self[to_index].remove_from(edge_index).unwrap();
 
         let edge = self.edges.remove(edge_index.0).unwrap();
         let edge_data = edge.data.clone();
@@ -323,15 +317,14 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         &self,
         from: VertexIndex,
         to: VertexIndex,
-    ) -> Result<Vec<EdgeIndex>, GraphError> {
+    ) -> Result<impl Iterator<Item = EdgeIndex> + '_, GraphError> {
         Ok(self
             .get_vertex(from)
             .with_context(|| VertexDoesNotExistSnafu { index: from })?
             .get_connections_to()
             .iter()
-            .filter(|connection| connection.0 == to)
-            .map(|connection| connection.1)
-            .collect())
+            .filter(move |connection| connection.0 == to)
+            .map(|connection| connection.1))
     }
 
     pub fn get_verticies(&self) -> &GenVec<Vertex<V>> {

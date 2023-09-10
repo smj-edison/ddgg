@@ -6,10 +6,10 @@ use crate::graph::Graph;
 fn test_use_old_index() {
     let mut graph: Graph<(), ()> = Graph::new();
 
-    let (first, _) = graph.add_vertex(()).unwrap();
+    let (first, _) = graph.add_vertex(());
     graph.remove_vertex(first).unwrap();
 
-    let (second, _) = graph.add_vertex(()).unwrap();
+    let (second, _) = graph.add_vertex(());
 
     assert_eq!(first.0.index, second.0.index);
     assert_ne!(first.0.generation, second.0.generation);
@@ -22,8 +22,8 @@ fn test_use_old_index() {
 fn test_vertex_data() {
     let mut graph: Graph<i32, ()> = Graph::new();
 
-    let (first, _) = graph.add_vertex(2).unwrap();
-    let (second, _) = graph.add_vertex(4).unwrap();
+    let (first, _) = graph.add_vertex(2);
+    let (second, _) = graph.add_vertex(4);
 
     assert_eq!(graph.get_vertex(first).unwrap().data, 2);
     assert_eq!(graph.get_vertex(second).unwrap().data, 4);
@@ -33,11 +33,11 @@ fn test_vertex_data() {
 fn test_undo_redo() {
     let mut graph: Graph<i32, ()> = Graph::new();
 
-    let (first, diff_1) = graph.add_vertex(2).unwrap();
+    let (first, diff_1) = graph.add_vertex(2);
     println!("{:?}", graph);
 
     let (_, diff_2) = graph.remove_vertex(first).unwrap();
-    let (second, diff_3) = graph.add_vertex(4).unwrap();
+    let (second, diff_3) = graph.add_vertex(4);
 
     // test that using the diffs in the wrong order produce correct results
     graph.rollback_diff(diff_1.clone()).unwrap_err();
@@ -66,9 +66,9 @@ fn test_undo_redo() {
 fn test_undo_redo_edges() {
     let mut graph: Graph<String, String> = Graph::new();
 
-    let (first_vertex, diff_1) = graph.add_vertex("first_vertex".into()).unwrap();
-    let (second_vertex, diff_2) = graph.add_vertex("second_vertex".into()).unwrap();
-    let (third_vertex, diff_3) = graph.add_vertex("third_vertex".into()).unwrap();
+    let (first_vertex, diff_1) = graph.add_vertex("first_vertex".into());
+    let (second_vertex, diff_2) = graph.add_vertex("second_vertex".into());
+    let (third_vertex, diff_3) = graph.add_vertex("third_vertex".into());
 
     let (first_edge, diff_4) = graph
         .add_edge(first_vertex, second_vertex, "first_edge".into())
