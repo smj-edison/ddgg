@@ -8,7 +8,7 @@ use serde::de;
 #[cfg(any(feature = "serde", feature = "serde_string_indexes"))]
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(
     all(feature = "serde", not(feature = "serde_string_indexes")),
     derive(Serialize, Deserialize)
@@ -20,6 +20,12 @@ use serde::{Deserialize, Serialize};
 pub struct Index {
     pub(crate) index: usize,
     pub(crate) generation: u32,
+}
+
+impl std::fmt::Debug for Index {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, (self.index, self.generation))
+    }
 }
 
 #[cfg(feature = "serde_string_indexes")]
