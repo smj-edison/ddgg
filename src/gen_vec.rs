@@ -22,9 +22,9 @@ pub struct Index {
     pub(crate) generation: u32,
 }
 
-impl std::fmt::Debug for Index {
+impl core::fmt::Debug for Index {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, (self.index, self.generation))
+        write!(f, "{:?}", (self.index, self.generation))
     }
 }
 
