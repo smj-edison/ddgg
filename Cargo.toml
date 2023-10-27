@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 name = "ddgg"
 readme = "README.md"
 repository = "https://github.com/smj-edison/ddgg"
-version = "0.8.1"
+version = "0.8.2"
 
 [dependencies]
 snafu = "0.7"
