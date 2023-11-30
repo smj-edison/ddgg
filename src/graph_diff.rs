@@ -82,9 +82,45 @@ impl<V, E> RemoveVertex<V, E> {
 }
 
 #[derive(Debug, Clone)]
+pub struct UpdateVertexData<V> {
+    pub(crate) index: VertexIndex,
+    pub(crate) before: V,
+    pub(crate) after: V,
+}
+
+impl<V> UpdateVertexData<V> {
+    pub fn get_before(&self) -> &V {
+        &self.before
+    }
+
+    pub fn get_after(&self) -> &V {
+        &self.after
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UpdateEdgeData<E> {
+    pub(crate) index: EdgeIndex,
+    pub(crate) before: E,
+    pub(crate) after: E,
+}
+
+impl<E> UpdateEdgeData<E> {
+    pub fn get_before(&self) -> &E {
+        &self.before
+    }
+
+    pub fn get_after(&self) -> &E {
+        &self.after
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum GraphDiff<V, E> {
     AddVertex(AddVertex<V>),
     AddEdge(AddEdge<E>),
     RemoveEdge(RemoveEdge<E>),
     RemoveVertex(RemoveVertex<V, E>),
+    UpdateVertexData(UpdateVertexData<V>),
+    UpdateEdgeData(UpdateEdgeData<E>),
 }
