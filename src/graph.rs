@@ -327,12 +327,24 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         self.verticies.get_mut(index.0)
     }
 
+    /// Note: changes here will *not* be tracked. It's usually better to use
+    /// [`Graph::update_vertex`]
+    pub fn get_vertex_data_mut(&mut self, index: VertexIndex) -> Option<&mut V> {
+        Some(&mut self.get_vertex_mut(index)?.data)
+    }
+
     pub fn get_edge(&self, index: EdgeIndex) -> Option<&Edge<E>> {
         self.edges.get(index.0)
     }
 
     pub fn get_edge_data(&self, index: EdgeIndex) -> Option<&E> {
         Some(&self.get_edge(index)?.data)
+    }
+
+    /// Note: changes here will *not* be tracked. It's usually better to use
+    /// [`Graph::update_edge`]
+    pub fn get_edge_data_mut(&mut self, index: EdgeIndex) -> Option<&mut E> {
+        Some(&mut self.get_edge_mut(index)?.data)
     }
 
     fn get_edge_mut(&mut self, index: EdgeIndex) -> Option<&mut Edge<E>> {
