@@ -158,15 +158,15 @@ impl<T> GenVec<T> {
     }
 
     pub fn get(&self, index: Index) -> Option<&T> {
-        match self.vec[index.index] {
-            Element::Occupied(ref value, generation) => {
-                if generation == index.generation {
+        match self.vec.get(index.index) {
+            Some(Element::Occupied(ref value, generation)) => {
+                if *generation == index.generation {
                     Some(value)
                 } else {
                     None
                 }
             }
-            Element::Open(_) => None,
+            _ => None,
         }
     }
 
