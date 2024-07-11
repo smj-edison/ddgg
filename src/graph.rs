@@ -418,10 +418,22 @@ impl<V: Clone, E: Clone> Graph<V, E> {
             .map(|(index, vertex)| (VertexIndex(index), &vertex.data))
     }
 
+    pub fn vertex_data_iter_mut(&mut self) -> impl Iterator<Item = (VertexIndex, &mut V)> + '_ {
+        self.verticies
+            .iter_mut()
+            .map(|(index, vertex)| (VertexIndex(index), &mut vertex.data))
+    }
+
     pub fn edge_data_iter(&self) -> impl Iterator<Item = (EdgeIndex, &E)> + '_ {
         self.edges
             .iter()
             .map(|(index, edge)| (EdgeIndex(index), &edge.data))
+    }
+
+    pub fn edge_data_iter_mut(&mut self) -> impl Iterator<Item = (EdgeIndex, &mut E)> + '_ {
+        self.edges
+            .iter_mut()
+            .map(|(index, edge)| (EdgeIndex(index), &mut edge.data))
     }
 
     fn apply_add_vertex_diff(&mut self, diff: AddVertex<V>) -> Result<(), GraphError> {
@@ -432,10 +444,10 @@ impl<V: Clone, E: Clone> Graph<V, E> {
             return Err(GraphError::InvalidDiff);
         }
 
-        self.verticies.vec_ref_mut()[diff.vertex_index.0.index] = Element::Occupied(
-            Vertex::new(diff.vertex_data),
-            diff.vertex_index.0.generation,
-        );
+        self.verticies.vec[diff.vertex_index.0.index] = Element::Occupied {
+            value: Vertex::new(diff.vertex_data),
+            generation: diff.vertex_index.0.generation,
+        };
 
         Ok(())
     }
@@ -450,10 +462,10 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         }
 
         // apply the diff
-        self.edges.vec_ref_mut()[diff.edge_index.0.index] = Element::Occupied(
-            Edge::new(diff.from, diff.to, diff.edge_data),
-            diff.edge_index.0.generation,
-        );
+        self.edges.vec[diff.edge_index.0.index] = Element::Occupied {
+            value: Edge::new(diff.from, diff.to, diff.edge_data),
+            generation: diff.edge_index.0.generation,
+        };
 
         let from = self
             .get_vertex_mut(diff.from)
@@ -567,8 +579,10 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         }
 
         // apply the diff
-        self.edges.vec_ref_mut()[diff.edge_index.0.index] =
-            Element::Occupied(diff.edge, diff.edge_index.0.generation);
+        self.edges.vec[diff.edge_index.0.index] = Element::Occupied {
+            value: diff.edge,
+            generation: diff.edge_index.0.generation,
+        };
 
         let from = self
             .get_vertex_mut(from_index)
@@ -601,8 +615,10 @@ impl<V: Clone, E: Clone> Graph<V, E> {
             }
         }
 
-        self.verticies.vec_ref_mut()[diff.vertex_index.0.index] =
-            Element::Occupied(diff.vertex, diff.vertex_index.0.generation);
+        self.verticies.vec[diff.vertex_index.0.index] = Element::Occupied {
+            value: diff.vertex,
+            generation: diff.vertex_index.0.generation,
+        };
 
         for removed_edge in diff.removed_edges {
             let from = self
@@ -615,8 +631,10 @@ impl<V: Clone, E: Clone> Graph<V, E> {
                 .expect("Graph state has become corrupted before applying diff");
             to.add_from_unchecked(removed_edge.edge.from, removed_edge.edge_index);
 
-            self.edges.vec_ref_mut()[removed_edge.edge_index.0.index] =
-                Element::Occupied(removed_edge.edge, removed_edge.edge_index.0.generation);
+            self.edges.vec[removed_edge.edge_index.0.index] = Element::Occupied {
+                value: removed_edge.edge,
+                generation: removed_edge.edge_index.0.generation,
+            };
         }
 
         Ok(())
@@ -637,7 +655,10 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         }
 
         // finally remove the vertex
-        let vertex = self.verticies.remove_keep_generation(index.0).unwrap();
+        let vertex = self
+            .verticies
+            .remove_but_maintain_generation(index.0)
+            .unwrap();
         let vertex_data = vertex.data.clone();
 
         Ok(vertex_data)
@@ -657,7 +678,10 @@ impl<V: Clone, E: Clone> Graph<V, E> {
         let to = self.get_vertex_mut(to_index).unwrap();
         to.remove_from(edge_index).unwrap();
 
-        let edge = self.edges.remove_keep_generation(edge_index.0).unwrap();
+        let edge = self
+            .edges
+            .remove_but_maintain_generation(edge_index.0)
+            .unwrap();
 
         Ok(edge.data)
     }

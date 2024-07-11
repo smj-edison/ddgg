@@ -1,6 +1,68 @@
 use std::println;
 
-use crate::graph::Graph;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+
+use crate::{gen_vec::Element, graph::Graph, GenVec};
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct Foo {
+    x: String,
+}
+
+#[test]
+fn test_gen_vec_serde() {
+    let mut vec: GenVec<Foo> = GenVec::new();
+
+    let first = vec.add(Foo { x: "foo".into() });
+    let second = vec.add(Foo { x: "foo".into() });
+    let third = vec.add(Foo { x: "foo".into() });
+    let _fourth = vec.add(Foo { x: "foo".into() });
+
+    vec.remove(first);
+    vec.remove(second);
+    vec.remove(third);
+
+    vec.add(Foo { x: "bar".into() });
+
+    assert_eq!(
+        serde_json::to_value(&vec).unwrap(),
+        json!({
+            "2.1": {
+                "x": "bar"
+            },
+            "3.0": {
+                "x": "foo"
+            }
+        })
+    );
+
+    let deserialized: GenVec<Foo> =
+        serde_json::from_value(serde_json::to_value(vec).unwrap()).unwrap();
+
+    assert_eq!(deserialized.next_open_slot, Some(1));
+    assert_eq!(
+        deserialized.vec,
+        vec![
+            Element::Open {
+                generation: 0,
+                next: None
+            },
+            Element::Open {
+                generation: 0,
+                next: Some(0)
+            },
+            Element::Occupied {
+                generation: 1,
+                value: Foo { x: "bar".into() }
+            },
+            Element::Occupied {
+                generation: 0,
+                value: Foo { x: "foo".into() }
+            },
+        ]
+    );
+}
 
 #[test]
 fn test_use_old_index() {
@@ -158,13 +220,12 @@ fn test_modify_data() {
 }
 
 #[test]
-#[cfg(feature = "serde_string_indexes")]
 fn test_custom_serde() {
     use crate::VertexIndex;
 
     let mut graph: Graph<(), ()> = Graph::new();
 
-    let (index, _) = graph.add_vertex(()).unwrap();
+    let (index, _) = graph.add_vertex(());
 
     assert_eq!(serde_json::to_string(&index).unwrap(), r#""0.0""#);
     assert_eq!(
